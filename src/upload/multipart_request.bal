@@ -1,10 +1,28 @@
 import ballerina/http;
 import ballerina/log;
 import ballerina/mime;
-import ballerina/docker;
+import ballerina/kubernetes;
+import ballerina/config;
 
-@docker:Expose {}
-listener http:Listener httpListener = new(9090);
+
+@kubernetes:Ingress {
+    hostname: "http-filemanager.io",
+    name: "http_filemanager_ingress"
+}
+@kubernetes:Service {
+    serviceType: "NodePort",
+    name: "http_filemanager_service"
+}
+
+listener http:Listener httpListener = new(9090, config = {
+    secureSocket: {
+        keyStore: {
+            
+            path: "./security/ballerinaKeystore.p12",
+            password: config:getAsString("httpd_fm.keystore.password")
+        }
+    }
+});
 
 http:Client clientEP = new ("http://localhost:9090");
 
@@ -12,13 +30,13 @@ http:Client clientEP = new ("http://localhost:9090");
     basePath: "/multiparts"
 }
 
-@docker:Config {
-    name: "http_filemanager",
-    tag: "v1.0",
-    push: true,
-    registry: "quay.io/ddefrancesco",
-    username: "ddefrancesco",
-    password: "P4p3r1n0"
+
+@kubernetes:ConfigMap {
+    conf: "service-config.toml"
+}
+@kubernetes:Deployment {
+    image: "quay.io/ddefrancesco/http_filemanager:v1.0",
+    name: "http_filemanager_service"
 }
 service multipartService on httpListener {
 
