@@ -26,9 +26,7 @@ listener http:Listener httpListener = new(9090, config = {
 
 http:Client clientEP = new ("http://localhost:9090");
 
-@http:ServiceConfig {
-    basePath: "/multiparts"
-}
+
 
 
 @kubernetes:ConfigMap {
@@ -36,7 +34,11 @@ http:Client clientEP = new ("http://localhost:9090");
 }
 @kubernetes:Deployment {
     image: "quay.io/ddefrancesco/http_filemanager:v1.0",
+
     name: "http_filemanager_service"
+}
+@http:ServiceConfig {
+    basePath: "/multiparts"
 }
 service multipartService on httpListener {
 
