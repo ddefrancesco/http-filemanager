@@ -1,0 +1,35 @@
+openapi: 3.0.1
+info:
+  title: multipartService
+  version: 1.0.0
+servers:
+- url: https://localhost/multiparts
+paths:
+  /decode:
+    post:
+      operationId: operation1_multipartReceiver
+      requestBody:
+        content:
+          '*/*':
+            schema:
+              $ref: '#/components/schemas/Request'
+        required: false
+      responses:
+        200:
+          description: Successful
+          content:
+            application/json:
+              example: Ok
+  /encode:
+    get:
+      operationId: operation1_multipartSender
+      responses:
+        200:
+          description: Successful
+          content:
+            application/json:
+              example: Ok
+components:
+  schemas:
+    Request:
+      type: object

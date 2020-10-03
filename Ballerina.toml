@@ -3,3 +3,10 @@ org-name= "ddefrancesco"
 version= "0.1.0"
 
 [dependencies]
+
+[platform]
+target = "java8"
+
+    [[platform.libraries]]
+    path = "/Library/Ballerina/distributions/jballerina-1.2.6/bre/lib/mysql-connector-java-8.0.21.jar"
+    modules = ["upload"]

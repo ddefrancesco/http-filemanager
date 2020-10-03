@@ -5,7 +5,16 @@ import ballerina/docker;
 //import ballerina/config;
 import ballerina/observe;
 import ballerina/io;
+import ballerinax/java.jdbc;
+import ballerina/time;
 
+
+jdbc:Client testDB = new ({
+    url: "jdbc:mysql://localhost:3306/testdb",
+    username: "daniele",
+    password: "secret",
+    dbOptions: {useSSL: false}
+});
 
 
 @docker:Expose {}
@@ -22,9 +31,7 @@ listener http:Listener httpListener = new(9234
 
 http:Client clientEP = new ("http://localhost:9234");
 
-@http:ServiceConfig {
-    basePath: "/multiparts"
-}
+
 @docker:Config {
     name: "http_filemanager",
     tag: "latest",
@@ -41,8 +48,12 @@ http:Client clientEP = new ("http://localhost:9234");
        //{ sourceFile: "./security/ballerinaKeystore.p12", target: "/home/ballerina/security/ballerinaKeystore.p12" }
    ]
 }
-service multipartService on httpListener {
 
+@http:ServiceConfig {
+    basePath: "/multiparts"
+}
+service multipartService on httpListener {
+        
         @http:ResourceConfig {
             methods: ["POST"],
             path: "/decode"
@@ -60,7 +71,8 @@ service multipartService on httpListener {
                 foreach var part in bodyParts {
                     mime:ContentDisposition contentDisposition = part.getContentDisposition();
                     
-                    p = handleContent(part,contentDisposition.fileName);
+                    p = handleContent(part,<@untained>  contentDisposition.fileName);
+
                 }
                 
                 //response.setPayload(<@untainted>bodyParts);
@@ -77,7 +89,7 @@ service multipartService on httpListener {
             }
             error? callEPResult = observe:finishSpan(childSpanId);
             error? obsResult = observe:finishSpan(spanId);
-
+            
             return ();
         }
 
@@ -104,6 +116,8 @@ service multipartService on httpListener {
 
                 
                 mime:Entity[] bodyParts = [jsonBodyPart, xmlFilePart];
+                
+                
                 error? setBodyPartResult = observe:finishSpan(childSpanId);
                 if (setBodyPartResult is error) {
                    log:printError("Error in finishing span", setBodyPartResult);
@@ -155,6 +169,16 @@ service multipartService on httpListener {
                     if (payload is xml) {
                         log:printInfo(payload.toString());
                         payloadObj.printableContent=<xml>payload;
+                                    
+                        jdbc:Parameter p2 = {sqlType: jdbc:TYPE_VARCHAR, value: payloadObj.printableContent};
+                        jdbc:Parameter p3 = {
+                            sqlType: jdbc:TYPE_TIMESTAMP,
+                            value: time:currentTime()
+                        };
+                        
+                        var inserted = testDB ->update("INSERT INTO payload(payload_content, insertedTime) values (?,?)", p2,p3 );
+                        handleUpdate(inserted,"Inserimento record" );
+
                     } else {
                         log:printError(<string>payload.detail().message);
                     }
@@ -165,6 +189,15 @@ service multipartService on httpListener {
                     if (payload is json) {
                         log:printInfo(payload.toJsonString());
                         payloadObj.printableContent=<json>payload;
+                        jdbc:Parameter p2 = {sqlType: jdbc:TYPE_VARCHAR, value: payloadObj.printableContent};
+                        jdbc:Parameter p3 = {
+                            sqlType: jdbc:TYPE_TIMESTAMP,
+                            value: time:currentTime()
+                        };
+                
+                        var inserted = testDB ->update("INSERT INTO payload(payload_content, insertedTime) values (?,?)", p2,p3 );
+                        handleUpdate(inserted,"Inserimento record" );
+
                     } else {
                         log:printError(<string>payload.detail().message);
                     }
@@ -175,6 +208,15 @@ service multipartService on httpListener {
                     if (payload is string) {
                         log:printInfo(payload);
                         payloadObj.printableContent=payload;
+                        jdbc:Parameter p2 = {sqlType: jdbc:TYPE_VARCHAR, value: payloadObj.printableContent};
+                        jdbc:Parameter p3 = {
+                            sqlType: jdbc:TYPE_TIMESTAMP,
+                            value: time:currentTime()
+                        };
+                
+                        var inserted = testDB ->update("INSERT INTO payload(payload_content, insertedTime) values (?,?)", p2,p3 );
+                        handleUpdate(inserted,"Inserimento record" );
+
                     } else {
                         log:printError(<string>payload.detail().message);
                     }
@@ -189,8 +231,16 @@ service multipartService on httpListener {
                         string fullPath = path.concat(fileName);
                         var err = writeToFile(fullPath,payload);
                         
-                        payloadObj.printableContent = "file salvato";
-                        
+                        payloadObj.printableContent = "file "+fileName+" salvato";
+                        jdbc:Parameter p2 = {sqlType: jdbc:TYPE_VARCHAR, value: payloadObj.printableContent};
+                        jdbc:Parameter p3 = {
+                            sqlType: jdbc:TYPE_TIMESTAMP,
+                            value: time:currentTime()
+                        };
+                
+                        var inserted = testDB ->update("INSERT INTO payload(payload_content, insertedTime) values (?,?)", p2,p3 );
+                        handleUpdate(inserted,"Inserimento record" );
+
                         log:printInfo("file salvato");
                     } else {
                         log:printError(<string>payload.detail().message);
@@ -219,7 +269,7 @@ service multipartService on httpListener {
             }
         }
 
-        function writeToFile(string fullPath, byte[] payload) returns error?{
+        function writeToFile(string fullPath, byte[] payload) returns @tainted error?{
                 
                 io:WritableByteChannel writableByteChannel = check io:openWritableFile(fullPath);
                 int i = 0;
