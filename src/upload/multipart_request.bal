@@ -5,7 +5,7 @@ import ballerina/docker;
 //import ballerina/config;
 import ballerina/observe;
 import ballerinax/java.jdbc;
-import ballerina/time;
+
 
 
 jdbc:Client testDB = new ({
@@ -59,7 +59,7 @@ service multipartService on httpListener {
         }
         resource function multipartReceiver(http:Caller caller, http:Request request) returns error? {
             http:Response response = new;
-            
+            json jsonResponse = {};
             int spanId = check observe:startSpan("ReceiverSpan");
             // [Extracts bodyparts](https://ballerina.io/swan-lake/learn/api-docs/ballerina/http/objects/Request.html#getBodyParts) from the request.
             
@@ -71,18 +71,24 @@ service multipartService on httpListener {
                     mime:ContentDisposition contentDisposition = part.getContentDisposition();
                     
                     p = handleContent(part,<@untained>  contentDisposition.fileName);
-
+                    
                 }
-                
-                //response.setPayload(<@untainted>bodyParts);
+                if (p is Payload) {
+                    jsonResponse = objectToJson(p);
+                }
+                response.statusCode = http:STATUS_OK;
+                response.setJsonPayload(jsonResponse);
             } else {
                 log:printError(<string>bodyParts.reason());
-                response.setPayload("Error in decoding multiparts!");
-                response.statusCode = 500;
+                
+                jsonResponse = {message: "Error in decoding multiparts!", code: http:STATUS_INTERNAL_SERVER_ERROR };
+                response.statusCode = http:STATUS_INTERNAL_SERVER_ERROR;
+                response.setJsonPayload(jsonResponse);
             }
             int childSpanId = check observe:startSpan("CallEPSpan", (),
                                                             spanId);
             var result = caller->respond(response);
+
             if (result is error) {
                 log:printError("Error sending response", result);
             }
@@ -127,9 +133,11 @@ service multipartService on httpListener {
 
                 request.setBodyParts(bodyParts, contentType = mime:MULTIPART_FORM_DATA);
                 var returnResponse = clientEP->post("/multiparts/decode", request);
+                
                 if (returnResponse is http:Response) {
+                    
                     var result = caller->respond(returnResponse);
-
+                     
                     if (result is error) {
                         log:printError("Error sending response", result);
                     }
@@ -154,110 +162,4 @@ service multipartService on httpListener {
                 return ();
             }
         }
-
-         function handleContent(mime:Entity bodyPart,string fileName) returns @tainted Payload|error?{
-            Payload payloadObj = new; 
-            
-            var mediaType = mime:getMediaType(bodyPart.getContentType());
-            log:printInfo(">>>>handle content begin<<<<");
-            if (mediaType is mime:MediaType) {
-                string baseType = mediaType.getBaseType();
-                log:printDebug("baseType "+ baseType);
-                if (mime:APPLICATION_XML == baseType || mime:TEXT_XML == baseType ) {
-
-                    var payload = bodyPart.getXml();
-                    if (payload is xml) {
-                        log:printInfo(payload.toString());
-                        payloadObj.printableContent=<xml>payload;
-                                    
-                        jdbc:Parameter p2 = {sqlType: jdbc:TYPE_VARCHAR, value: payloadObj.printableContent};
-                        jdbc:Parameter p3 = {
-                            sqlType: jdbc:TYPE_TIMESTAMP,
-                            value: time:currentTime()
-                        };
-                        
-                        var inserted = testDB ->update("INSERT INTO payload(payload_content, insertedTime) values (?,?)", p2,p3 );
-                        handleUpdate(inserted,"Inserimento record" );
-
-                    } else {
-                        log:printError(<string>payload.detail().message);
-                    }
-                    
-                } else if (mime:APPLICATION_JSON == baseType) {
-
-                    var payload = bodyPart.getJson();
-                    if (payload is json) {
-                        log:printInfo(payload.toJsonString());
-                        payloadObj.printableContent=<json>payload;
-                        jdbc:Parameter p2 = {sqlType: jdbc:TYPE_VARCHAR, value: payloadObj.printableContent};
-                        jdbc:Parameter p3 = {
-                            sqlType: jdbc:TYPE_TIMESTAMP,
-                            value: time:currentTime()
-                        };
-                
-                        var inserted = testDB ->update("INSERT INTO payload(payload_content, insertedTime) values (?,?)", p2,p3 );
-                        handleUpdate(inserted,"Inserimento record" );
-
-                    } else {
-                        log:printError(<string>payload.detail().message);
-                    }
-                    
-                } else if (mime:TEXT_PLAIN == baseType) {
-
-                    var payload = bodyPart.getText();
-                    if (payload is string) {
-                        log:printInfo(payload);
-                        payloadObj.printableContent=payload;
-                        jdbc:Parameter p2 = {sqlType: jdbc:TYPE_VARCHAR, value: payloadObj.printableContent};
-                        jdbc:Parameter p3 = {
-                            sqlType: jdbc:TYPE_TIMESTAMP,
-                            value: time:currentTime()
-                        };
-                
-                        var inserted = testDB ->update("INSERT INTO payload(payload_content, insertedTime) values (?,?)", p2,p3 );
-                        handleUpdate(inserted,"Inserimento record" );
-
-                    } else {
-                        log:printError(<string>payload.detail().message);
-                    }
-                } else if (mime:APPLICATION_PDF == baseType || mime:APPLICATION_OCTET_STREAM == baseType 
-                        || mime:IMAGE_GIF == baseType || mime:IMAGE_JPEG == baseType || mime:IMAGE_PNG == baseType) {
-                    
-                    var payload = bodyPart.getByteArray();
-                    if (payload is byte[]) {
-                        //Scrivi il payload su un file 
-                        //Salva il file su filesystem
-                        
-                        string path = "files/";
-                        string fullPath = path.concat(fileName);
-                        var err = writeToFile(fullPath,payload);
-                        
-                        payloadObj.printableContent = "file "+fileName+" salvato";
-                        jdbc:Parameter p2 = {sqlType: jdbc:TYPE_VARCHAR, value: payloadObj.printableContent};
-                        jdbc:Parameter p3 = {
-                            sqlType: jdbc:TYPE_TIMESTAMP,
-                            value: time:currentTime()
-                        };
-                
-                        var inserted = testDB ->update("INSERT INTO payload(payload_content, insertedTime) values (?,?)", p2,p3 );
-                        handleUpdate(inserted,"Inserimento record" );
-
-                        log:printInfo("file salvato");
-                    } else {
-                
-                        log:printError(<string>payload.detail().message);
-                        error uploadError = error("HFM-01: Binary Uplod Error: ", message = <string>payload.detail().message);
-                        return uploadError;
-                    }
-                }
-
-            }
-            return payloadObj;
-        }
-
-
-
- 
-
-
 
