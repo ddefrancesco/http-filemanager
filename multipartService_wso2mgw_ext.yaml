@@ -1,0 +1,53 @@
+openapi: 3.0.1
+info:
+  title: multipartService
+  version: 1.0.0
+servers:
+- url: https://localhost/multiparts/v1
+x-wso2-basePath: /multiparts/v1
+x-wso2-production-endpoints: "#/x-wso2-endpoints/uploadEndpoint"
+paths:
+  /decode:
+    post:
+      operationId: operation1_multipartReceiver
+      requestBody:
+        content:
+          '*/*':
+            schema:
+              $ref: '#/components/schemas/Request'
+        required: false
+      responses:
+        200:
+          description: Successful
+          content:
+            application/json:
+              example: Ok
+      security: 
+        - ApiKeyAuth: []
+           
+  /encode:
+    get:
+      operationId: operation1_multipartSender
+      responses:
+        200:
+          description: Successful
+          content:
+            application/json:
+              example: Ok
+      security: 
+        - ApiKeyAuth: []        
+components:
+  schemas:
+    Request:
+      type: object
+  securitySchemes:
+    ApiKeyAuth:        # arbitrary name for the security scheme
+      type: apiKey
+      in: header       # can be "header" or "query" 
+      name: X-API-KEY
+x-wso2-endpoints:
+ - uploadEndpoint:
+    urls:
+    - https://localhost:9234/multiparts
+
+ 
