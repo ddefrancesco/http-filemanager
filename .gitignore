@@ -2,4 +2,7 @@ target
 .idea
 *.iml
 *.lock
-files/*.pdf
+files/*.*
+*.log*
+
+.vscode/*.*

@@ -130,12 +130,13 @@ service multipartService on httpListener {
                 var returnResponse = clientEP->post("/multiparts/decode", request);
                 if (returnResponse is http:Response) {
                     var result = caller->respond(returnResponse);
+
                     if (result is error) {
                         log:printError("Error sending response", result);
                     }
                 } else {
                     http:Response response = new;
-                    response.setPayload("Error occurred while sending multipart " +
+                    response.setJsonPayload("Error occurred while sending multipart " +
                                             "request!");
                     response.statusCode = 500;
                     var result = caller->respond(response);
@@ -163,7 +164,7 @@ service multipartService on httpListener {
             if (mediaType is mime:MediaType) {
                 string baseType = mediaType.getBaseType();
                 log:printDebug("baseType "+ baseType);
-                if (mime:APPLICATION_XML == baseType || mime:TEXT_XML == baseType) {
+                if (mime:APPLICATION_XML == baseType || mime:TEXT_XML == baseType ) {
 
                     var payload = bodyPart.getXml();
                     if (payload is xml) {
@@ -220,7 +221,8 @@ service multipartService on httpListener {
                     } else {
                         log:printError(<string>payload.detail().message);
                     }
-                } else if (mime:APPLICATION_PDF == baseType || mime:APPLICATION_OCTET_STREAM == baseType) {
+                } else if (mime:APPLICATION_PDF == baseType || mime:APPLICATION_OCTET_STREAM == baseType 
+                        || mime:IMAGE_GIF == baseType || mime:IMAGE_JPEG == baseType || mime:IMAGE_PNG == baseType) {
                     
                     var payload = bodyPart.getByteArray();
                     if (payload is byte[]) {
