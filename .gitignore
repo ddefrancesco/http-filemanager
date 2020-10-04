@@ -6,3 +6,4 @@ files/*.*
 *.log*
 
 .vscode/*.*
+extconfigs/prometheus.yml
